@@ -181,7 +181,6 @@ type RegionalIntensity struct {
 	Index     string `json:"index"`
 }
 
-
 // --- wire types ---
 
 type wireIntensityResponse struct {
@@ -222,7 +221,6 @@ type wireRegionalResponse struct {
 		} `json:"regions"`
 	} `json:"data"`
 }
-
 
 // --- client methods ---
 

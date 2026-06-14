@@ -80,9 +80,6 @@ func (Domain) Register(app *kit.App) {
 // newClient builds the client from the host-resolved config.
 func newClient(_ context.Context, cfg kit.Config) (any, error) {
 	dcfg := DefaultConfig()
-	if cfg.UserAgent != "" {
-		// UserAgent is embedded in the client struct; pass via config field
-	}
 	if cfg.Rate > 0 {
 		dcfg.Rate = cfg.Rate
 	}
