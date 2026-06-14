@@ -1,0 +1,10 @@
+title       = "carbonintensity"
+baseURL     = "https://carbonintensity-cli.tamnd.com/"
+description = "A command line for the UK Carbon Intensity API."
+contentDir  = "content"
+outputDir   = "public"
+theme       = "tago-doks"
+syntaxHighlight = "true"
+
+[params]
+github = "https://github.com/tamnd/carbonintensity-cli"
