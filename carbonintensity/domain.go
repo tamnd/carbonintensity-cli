@@ -66,10 +66,15 @@ func (Domain) Register(app *kit.App) {
 	}, getRegional)
 
 	kit.Handle(app, kit.OpMeta{
-		Name: "factors", Group: "read",
-		Summary: "Emission factors by fuel type (gCO2/kWh)",
+		Name:    "history",
+		Group:   "read",
+		Summary: "Carbon intensity for a date range (ISO datetimes, e.g. 2025-01-01T00:00Z)",
 		URIType: "query",
-	}, getFactors)
+		Args: []kit.Arg{
+			{Name: "from", Help: "start datetime, e.g. 2025-01-01T00:00Z"},
+			{Name: "to", Help: "end datetime, e.g. 2025-01-01T02:00Z"},
+		},
+	}, getHistory)
 }
 
 // newClient builds the client from the host-resolved config.
@@ -108,8 +113,10 @@ type regionalInput struct {
 	Client *Client `kit:"inject"`
 }
 
-type factorsInput struct {
+type historyInput struct {
 	Client *Client `kit:"inject"`
+	From   string  `kit:"arg" json:"from"`
+	To     string  `kit:"arg" json:"to"`
 }
 
 // --- handlers ---
@@ -148,13 +155,13 @@ func getRegional(ctx context.Context, in regionalInput, emit func(RegionalIntens
 	return nil
 }
 
-func getFactors(ctx context.Context, in factorsInput, emit func(FuelFactor) error) error {
-	factors, err := in.Client.GetFactors(ctx)
+func getHistory(ctx context.Context, in historyInput, emit func(*Intensity) error) error {
+	records, err := in.Client.GetHistory(ctx, in.From, in.To)
 	if err != nil {
 		return err
 	}
-	for _, f := range factors {
-		if err := emit(f); err != nil {
+	for i := range records {
+		if err := emit(&records[i]); err != nil {
 			return err
 		}
 	}
