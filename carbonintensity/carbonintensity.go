@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"sort"
+	"net/url"
 	"time"
 )
 
@@ -167,9 +167,8 @@ type Intensity struct {
 
 // GenerationFuel is one fuel's share of the current electricity generation mix.
 type GenerationFuel struct {
-	From string  `kit:"id" json:"from"`
-	Fuel string  `json:"fuel"`
-	Perc float64 `json:"percentage"`
+	Fuel    string `kit:"id" json:"fuel"`
+	Percent string `json:"percent"` // formatted as "%.1f"
 }
 
 // RegionalIntensity is the carbon intensity for one UK distribution network region.
@@ -182,11 +181,6 @@ type RegionalIntensity struct {
 	Index     string `json:"index"`
 }
 
-// FuelFactor is the emission factor (gCO2/kWh) for one fuel type.
-type FuelFactor struct {
-	Fuel   string `kit:"id" json:"fuel"`
-	Factor int    `json:"factor_gco2_kwh"`
-}
 
 // --- wire types ---
 
@@ -229,9 +223,6 @@ type wireRegionalResponse struct {
 	} `json:"data"`
 }
 
-type wireFactorsResponse struct {
-	Data []map[string]int `json:"data"`
-}
 
 // --- client methods ---
 
@@ -263,9 +254,8 @@ func (c *Client) GetGeneration(ctx context.Context) ([]GenerationFuel, error) {
 	fuels := make([]GenerationFuel, 0, len(w.Data.GenerationMix))
 	for _, m := range w.Data.GenerationMix {
 		fuels = append(fuels, GenerationFuel{
-			From: w.Data.From,
-			Fuel: m.Fuel,
-			Perc: m.Perc,
+			Fuel:    m.Fuel,
+			Percent: fmt.Sprintf("%.1f", m.Perc),
 		})
 	}
 	return fuels, nil
@@ -296,25 +286,23 @@ func (c *Client) GetRegional(ctx context.Context) ([]RegionalIntensity, error) {
 	return regions, nil
 }
 
-// GetFactors returns the emission factor (gCO2/kWh) for each fuel type, sorted
-// alphabetically by fuel name.
-func (c *Client) GetFactors(ctx context.Context) ([]FuelFactor, error) {
-	var w wireFactorsResponse
-	if err := c.get(ctx, "/intensity/factors", &w); err != nil {
+// GetHistory returns carbon intensity records for the given date range.
+// from and to must be ISO 8601 datetime strings, e.g. "2025-01-01T00:00Z".
+func (c *Client) GetHistory(ctx context.Context, from, to string) ([]Intensity, error) {
+	path := "/intensity/" + url.PathEscape(from) + "/" + url.PathEscape(to)
+	var w wireIntensityResponse
+	if err := c.get(ctx, path, &w); err != nil {
 		return nil, err
 	}
-	if len(w.Data) == 0 {
-		return nil, fmt.Errorf("factors: empty response")
+	out := make([]Intensity, 0, len(w.Data))
+	for _, d := range w.Data {
+		out = append(out, Intensity{
+			From:     d.From,
+			To:       d.To,
+			Forecast: d.Intensity.Forecast,
+			Actual:   d.Intensity.Actual,
+			Index:    d.Intensity.Index,
+		})
 	}
-	m := w.Data[0]
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	factors := make([]FuelFactor, 0, len(keys))
-	for _, k := range keys {
-		factors = append(factors, FuelFactor{Fuel: k, Factor: m[k]})
-	}
-	return factors, nil
+	return out, nil
 }
